@@ -2,21 +2,28 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: logstash-config
+  namespace: elasticsearch
 data:
   logstash.conf: |
     input {
-      beats { port => 5044 }
+      beats {
+        port => 5044
+      }
     }
+
     output {
       elasticsearch {
         hosts => ["http://elasticsearch:9200"]
+        index => "filebeat-%{+YYYY.MM.dd}"
       }
+      stdout { codec => rubydebug }
     }
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: logstash
+  namespace: elasticsearch
 spec:
   replicas: 1
   selector:
@@ -30,9 +37,12 @@ spec:
       containers:
       - name: logstash
         image: docker.elastic.co/logstash/logstash:9.1.6
+        ports:
+        - containerPort: 5044
         volumeMounts:
         - name: config
-          mountPath: /usr/share/logstash/pipeline
+          mountPath: /usr/share/logstash/pipeline/logstash.conf
+          subPath: logstash.conf
       volumes:
       - name: config
         configMap:
@@ -42,8 +52,10 @@ apiVersion: v1
 kind: Service
 metadata:
   name: logstash
+  namespace: elasticsearch
 spec:
   selector:
     app: logstash
   ports:
   - port: 5044
+    targetPort: 5044

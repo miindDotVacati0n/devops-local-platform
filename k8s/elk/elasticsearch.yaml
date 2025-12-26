@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: elasticsearch
+  namespace: elasticsearch
 spec:
   replicas: 1
   selector:
@@ -15,20 +16,58 @@ spec:
       containers:
       - name: elasticsearch
         image: docker.elastic.co/elasticsearch/elasticsearch:9.1.6
-        env:
-        - name: discovery.type
-          value: single-node
-        - name: xpack.security.enabled
-          value: "false"
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9200
+          name: http
+        env:
+        # ====== Cluster / Node ======
+        - name: node.name
+          value: elasticsearch
+        - name: cluster.name
+          value: docker-cluster
+        - name: discovery.type
+          value: single-node
+
+        # ====== Disable Security (LAB ONLY) ======
+        - name: xpack.security.enabled
+          value: "false"
+        - name: xpack.security.enrollment.enabled
+          value: "false"
+
+        # ====== JVM ======
+        - name: ES_JAVA_OPTS
+          value: "-Xms512m -Xmx512m"
+
+        # ====== Network ======
+        - name: network.host
+          value: "0.0.0.0"
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1"
+
+        volumeMounts:
+        - name: elasticsearch-data
+          mountPath: /usr/share/elasticsearch/data
+
+      volumes:
+      - name: elasticsearch-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: elasticsearch
+  namespace: elasticsearch
 spec:
   selector:
     app: elasticsearch
   ports:
-  - port: 9200
+  - name: http
+    port: 9200
+    targetPort: 9200
