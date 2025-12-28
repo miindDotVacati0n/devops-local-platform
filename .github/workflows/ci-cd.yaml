@@ -5,15 +5,29 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout source
+      uses: actions/checkout@v4
 
     - name: Login Docker Hub
       run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
-    - name: Build & Push Backend
+    - name: Build & Push Backend Image
       run: |
-        docker build -t yourname/backend:latest apps/backend
-        docker push yourname/backend:latest
+        IMAGE_TAG=${GITHUB_SHA::7}
+        docker build -t m31llow/backend:$IMAGE_TAG applications/backend
+        docker push m31llow/backend:$IMAGE_TAG
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+    - name: Setup kubeconfig
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+
+    - name: Deploy Backend to Kubernetes
+      run: |
+        sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/backend.yaml
+        kubectl apply -f k8s/backend/
