@@ -7,59 +7,58 @@ on:
 
 env:
   IMAGE_NAME: m31llow/backend
+  NAMESPACE: backend
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    # ------------------------
-    # Checkout source code
-    # ------------------------
-    - name: Checkout code
+    - name: Checkout source
       uses: actions/checkout@v4
 
-    # ------------------------
-    # Docker Login
-    # ------------------------
+    # -------------------------
+    # Docker
+    # -------------------------
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
     - name: Login Docker Hub
       run: |
         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
           -u "${{ secrets.DOCKER_USERNAME }}" \
           --password-stdin
 
-    # ------------------------
-    # Build & Push Docker Image
-    # ------------------------
-    - name: Build and Push Backend Image
+    - name: Build & Push Docker Image
       run: |
         IMAGE_TAG=${GITHUB_SHA::7}
-        docker build \
-          -t $IMAGE_NAME:$IMAGE_TAG \
-          -f applications/backend/Dockerfile \
-          applications/backend
+        docker build -t $IMAGE_NAME:$IMAGE_TAG apps/backend
         docker push $IMAGE_NAME:$IMAGE_TAG
         echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-    # ------------------------
-    # Create Kubernetes Cluster (kind)
-    # ------------------------
+    # -------------------------
+    # Kubernetes (kind)
+    # -------------------------
     - name: Create kind cluster
       uses: helm/kind-action@v1.10.0
+      with:
+        cluster_name: ci-cluster
 
-    # ------------------------
-    # Verify Kubernetes Cluster
-    # ------------------------
-    - name: Check cluster
+    - name: Verify Kubernetes
       run: |
         kubectl cluster-info
         kubectl get nodes
 
-    # ------------------------
-    # Deploy Backend to Kubernetes
-    # ------------------------
-    - name: Deploy Backend
+    # -------------------------
+    # Deploy
+    # -------------------------
+    - name: Deploy to Kubernetes
       run: |
-        kubectl create namespace backend --dry-run=client -o yaml | kubectl apply -f -
+        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+
         sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/backend.yaml
+
         kubectl apply -f k8s/backend/
+
+        kubectl rollout status deployment/backend -n $NAMESPACE
+
