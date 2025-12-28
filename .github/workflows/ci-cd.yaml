@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  IMAGE_NAME: yourdockerhub/backend
+  IMAGE_NAME: m31llow/backend
 
 jobs:
   build-and-deploy:
