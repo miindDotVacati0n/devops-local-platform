@@ -1,4 +1,4 @@
-name: CI-CD
+name: CI-CD (Self Hosted)
 
 on:
   push:
@@ -7,63 +7,78 @@ on:
 
 env:
   IMAGE_NAME: m31llow/backend
-  NAMESPACE: backend
+  KUBE_NAMESPACE: backend
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: self-hosted
 
     steps:
+    # -------------------------
+    # 1. Checkout source code
+    # -------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
     # -------------------------
-    # Docker
+    # 2. Set image tag
     # -------------------------
-    - name: Login Docker Hub
+    - name: Set IMAGE_TAG
+      run: |
+        echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+    # -------------------------
+    # 3. Docker login
+    # -------------------------
+    - name: Docker Login
       run: |
         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
           -u "${{ secrets.DOCKER_USERNAME }}" \
           --password-stdin
 
-    - name: Build & Push Image
+    # -------------------------
+    # 4. Build & Push image
+    # -------------------------
+    - name: Build & Push Backend Image
       run: |
-        IMAGE_TAG=${GITHUB_SHA::7}
-        docker build -t $IMAGE_NAME:$IMAGE_TAG applications/backend
-        docker push $IMAGE_NAME:$IMAGE_TAG
-        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+        docker build \
+          -t $IMAGE_NAME:${IMAGE_TAG} \
+          applications/backend
+
+        docker push $IMAGE_NAME:${IMAGE_TAG}
 
     # -------------------------
-    # Kubectl setup
+    # 5. Prepare Kubernetes manifests
     # -------------------------
-    - name: Setup kubeconfig
+    - name: Prepare Kubernetes YAML
       run: |
-        mkdir -p ~/.kube
-        echo "${{ secrets.KUBECONFIG_DATA }}" > ~/.kube/config
-        chmod 600 ~/.kube/config
-
-    - name: Verify cluster
-      run: |
-        kubectl cluster-info
-        kubectl get nodes
-
-    # -------------------------
-    # Deploy
-    # -------------------------
-    - name: Deploy backend
-      run: |
-        kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
-
         sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/backend.yaml
 
-        kubectl apply -f k8s/backend/
-
-        kubectl rollout restart deployment/backend -n $NAMESPACE
-        kubectl rollout status deployment/backend -n $NAMESPACE
-
     # -------------------------
-    # Debug
+    # 6. Ensure namespace exists
     # -------------------------
-    - name: Debug
+    - name: Ensure Namespace
       run: |
-        kubectl get pods -n $NAMESPACE
+        kubectl get ns $KUBE_NAMESPACE || \
+        kubectl create namespace $KUBE_NAMESPACE
+
+    # -------------------------
+    # 7. Deploy to Kubernetes
+    # -------------------------
+    - name: Deploy Backend
+      run: |
+        kubectl apply -n $KUBE_NAMESPACE -f k8s/backend/
+
+    # -------------------------
+    # 8. Force rollout (IMPORTANT)
+    # -------------------------
+    - name: Rollout Restart
+      run: |
+        kubectl rollout restart deployment backend -n $KUBE_NAMESPACE
+
+    # -------------------------
+    # 9. Wait for rollout
+    # -------------------------
+    - name: Wait for Rollout
+      run: |
+        kubectl rollout status deployment backend -n $KUBE_NAMESPACE
