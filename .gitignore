@@ -1,0 +1,33 @@
+# ===============================
+# GitHub Actions self-hosted runner
+# ===============================
+actions-runner/
+_runner/
+.runner/
+
+# ===============================
+# Node.js
+# ===============================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===============================
+# Terraform
+# ===============================
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+
+# ===============================
+# OS / Editor
+# ===============================
+.DS_Store
+.idea/
+.vscode/
+
+# ===============================
+# Logs
+# ===============================
+*.log
