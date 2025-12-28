@@ -14,7 +14,16 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Cleanup Git Metadata
+      run: |
+        echo "Pre-cleanup to avoid Checkout Error 128"
+        rm -rf .git || true
+        
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        clean: true
+        fetch-depth: 1
 
     - name: Ensure Namespace
       run: |
@@ -22,12 +31,13 @@ jobs:
 
     - name: Deploy ELK Stack
       run: |
+        kubectl apply -n ${ELK_NAMESPACE} -f k8s/elk/filebeat-rbac.yaml || true
         kubectl apply -n ${ELK_NAMESPACE} -f k8s/elk/
 
     - name: Wait for Elasticsearch
       run: |
-        kubectl rollout status deployment elasticsearch -n ${ELK_NAMESPACE} || true
+        kubectl rollout status deployment elasticsearch -n ${ELK_NAMESPACE} --timeout=90s || true
 
     - name: Wait for Kibana
       run: |
-        kubectl rollout status deployment kibana -n ${ELK_NAMESPACE} || true
+        kubectl rollout status deployment kibana -n ${ELK_NAMESPACE} --timeout=90s || true
