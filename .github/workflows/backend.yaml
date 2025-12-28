@@ -9,6 +9,7 @@ on:
 
 jobs:
   build-and-deploy:
+    runs-on: self-hosted 
     env:
       IMAGE_NAME: m31llow/backend
       KUBE_NAMESPACE: backend
@@ -16,9 +17,9 @@ jobs:
     steps:
       - name: Cleanup Workspace
         run: |
-          echo "Cleaning up old git metadata..."
-          rm -rf .git
-          
+          echo "🧹 Cleaning up old git metadata..."
+          rm -rf .git || true
+
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
@@ -28,7 +29,6 @@ jobs:
       - name: Docker Build & Push
         run: |
           docker build -t ${{ env.IMAGE_NAME }}:latest -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./applications/backend
-          # docker login ต้องทำไว้ที่เครื่อง runner หรือใส่ใน step ก่อนหน้า
           docker push ${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
 
@@ -36,5 +36,5 @@ jobs:
         run: |
           kubectl apply -f k8s/backend/configmap.yaml
           kubectl apply -f k8s/backend/backend.yaml
-          # Force rollout เพื่อใช้ image ใหม่
+          # Force rollout เพื่อให้ดึง Image ล่าสุดมาใช้เสมอ
           kubectl rollout restart deployment backend -n ${{ env.KUBE_NAMESPACE }}
