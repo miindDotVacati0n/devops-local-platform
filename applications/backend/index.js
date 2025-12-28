@@ -5,53 +5,47 @@ const PORT = process.env.PORT || 3000;
 const READY_DELAY = parseInt(process.env.READY_DELAY) || 3000;
 let ready = false;
 
+// Structured Logging for ELK
 const logger = (level, message, meta = {}) => {
   console.log(JSON.stringify({
     timestamp: new Date().toISOString(),
     level,
     message,
+    service: 'backend',
     ...meta
   }));
 };
 
 setTimeout(() => {
   ready = true;
-  logger('INFO', 'Backend is ready to serve traffic');
+  logger('INFO', 'Backend ready state reached');
 }, READY_DELAY);
-
-app.get('/', (req, res) => {
-  logger('INFO', 'Root endpoint hit', { path: '/', method: 'GET' });
-  res.send('Backend is running');
-});
-
-app.get('/api', (req, res) => {
-  logger('INFO', 'API endpoint hit', { path: '/api', method: 'GET' });
-  res.json({ status: 'ok', version: '1.0.0' });
-});
 
 app.get('/health', (req, res) => res.send('ok'));
 app.get('/ready', (req, res) => {
   ready ? res.send('ready') : res.status(503).send('not ready');
 });
 
-app.use((err, req, res, next) => {
-  logger('ERROR', err.message, { stack: err.stack });
-  res.status(500).json({ error: 'Internal Server Error' });
+app.get('/api', (req, res) => {
+  logger('INFO', 'API access', { path: '/api', method: 'GET' });
+  res.json({ status: 'ok', data: 'Hello from Production-grade Backend' });
 });
 
-app.use((req, res) => {
-  logger('WARN', 'Route not found', { path: req.path });
-  res.status(404).json({ error: 'Not Found' });
+// Global Error Handler
+app.use((err, req, res, next) => {
+  logger('ERROR', 'Unhandled Exception', { error: err.message, stack: err.stack });
+  res.status(500).send('Internal Server Error');
 });
 
 const server = app.listen(PORT, () => {
-  logger('INFO', `Server started on port ${PORT}`);
+  logger('INFO', `Server listening on port ${PORT}`);
 });
 
+// Graceful Shutdown for K8s Zero-downtime
 process.on('SIGTERM', () => {
-  logger('WARN', 'SIGTERM received, shutting down gracefully');
+  logger('WARN', 'SIGTERM received. Closing server...');
   server.close(() => {
-    logger('INFO', 'Process terminated');
+    logger('INFO', 'Server closed. Exiting process.');
     process.exit(0);
   });
 });
