@@ -17,18 +17,30 @@ spec:
       - name: backend
         image: m31llow/backend:IMAGE_TAG
         ports:
-        - containerPort: 8080
+        - containerPort: 3000
+
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
 
         readinessProbe:
           httpGet:
             path: /health
-            port: 8080
+            port: 3000
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
 
         livenessProbe:
           httpGet:
             path: /health
-            port: 8080
+            port: 3000
           initialDelaySeconds: 15
           periodSeconds: 20
+          timeoutSeconds: 2
+          failureThreshold: 3
