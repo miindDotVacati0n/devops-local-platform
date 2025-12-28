@@ -60,5 +60,6 @@ jobs:
     # ------------------------
     - name: Deploy Backend
       run: |
+        kubectl create namespace backend --dry-run=client -o yaml | kubectl apply -f -
         sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/backend.yaml
         kubectl apply -f k8s/backend/
