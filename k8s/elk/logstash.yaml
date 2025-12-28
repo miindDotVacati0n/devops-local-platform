@@ -14,7 +14,7 @@ data:
     output {
       elasticsearch {
         hosts => ["http://elasticsearch:9200"]
-        index => "filebeat-%{+YYYY.MM.dd}"
+        index => "local-backend-ms-%{+YYYY.MM.dd}"
       }
       stdout { codec => rubydebug }
     }
