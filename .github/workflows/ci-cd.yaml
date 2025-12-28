@@ -14,71 +14,73 @@ jobs:
     runs-on: self-hosted
 
     steps:
-    # -------------------------
+    # ------------------------------------------------
     # 1. Checkout source code
-    # -------------------------
+    # ------------------------------------------------
     - name: Checkout
       uses: actions/checkout@v4
 
-    # -------------------------
-    # 2. Set image tag
-    # -------------------------
+    # ------------------------------------------------
+    # 2. Set IMAGE_TAG from commit SHA
+    # ------------------------------------------------
     - name: Set IMAGE_TAG
       run: |
         echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-    # -------------------------
-    # 3. Docker login
-    # -------------------------
+    # ------------------------------------------------
+    # 3. Docker Login (Docker Hub)
+    # ------------------------------------------------
     - name: Docker Login
       run: |
         echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
           -u "${{ secrets.DOCKER_USERNAME }}" \
           --password-stdin
 
-    # -------------------------
-    # 4. Build & Push image
-    # -------------------------
+    # ------------------------------------------------
+    # 4. Build & Push Docker Image
+    # ------------------------------------------------
     - name: Build & Push Backend Image
       run: |
         docker build \
-          -t $IMAGE_NAME:${IMAGE_TAG} \
+          -t ${IMAGE_NAME}:${IMAGE_TAG} \
           applications/backend
 
-        docker push $IMAGE_NAME:${IMAGE_TAG}
+        docker push ${IMAGE_NAME}:${IMAGE_TAG}
 
-    # -------------------------
-    # 5. Prepare Kubernetes manifests
-    # -------------------------
-    - name: Prepare Kubernetes YAML
+    # ------------------------------------------------
+    # 5. Render Kubernetes manifest (envsubst)
+    # ------------------------------------------------
+    - name: Render Kubernetes YAML
       run: |
-        sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/backend.yaml
+        export IMAGE_TAG=${IMAGE_TAG}
+        envsubst < k8s/backend/backend.yaml > k8s/backend/backend.rendered.yaml
 
-    # -------------------------
+    # ------------------------------------------------
     # 6. Ensure namespace exists
-    # -------------------------
+    # ------------------------------------------------
     - name: Ensure Namespace
       run: |
-        kubectl get ns $KUBE_NAMESPACE || \
-        kubectl create namespace $KUBE_NAMESPACE
+        kubectl get namespace ${KUBE_NAMESPACE} \
+        || kubectl create namespace ${KUBE_NAMESPACE}
 
-    # -------------------------
+    # ------------------------------------------------
     # 7. Deploy to Kubernetes
-    # -------------------------
+    # ------------------------------------------------
     - name: Deploy Backend
       run: |
-        kubectl apply -n $KUBE_NAMESPACE -f k8s/backend/
+        kubectl apply -n ${KUBE_NAMESPACE} -f k8s/backend/backend.rendered.yaml
+        kubectl apply -n ${KUBE_NAMESPACE} -f k8s/backend/service.yaml
 
-    # -------------------------
-    # 8. Force rollout (IMPORTANT)
-    # -------------------------
+    # ------------------------------------------------
+    # 8. Force rollout restart (important)
+    # ------------------------------------------------
     - name: Rollout Restart
       run: |
-        kubectl rollout restart deployment backend -n $KUBE_NAMESPACE
+        kubectl rollout restart deployment backend -n ${KUBE_NAMESPACE}
 
-    # -------------------------
-    # 9. Wait for rollout
-    # -------------------------
+    # ------------------------------------------------
+    # 9. Wait for rollout to finish
+    # ------------------------------------------------
     - name: Wait for Rollout
       run: |
-        kubectl rollout status deployment backend -n $KUBE_NAMESPACE
+        kubectl rollout status deployment backend -n ${KUBE_NAMESPACE}

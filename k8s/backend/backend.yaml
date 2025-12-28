@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: m31llow/backend:IMAGE_TAG
+        iimage: m31llow/backend:${IMAGE_TAG}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 3000
