@@ -1,0 +1,33 @@
+name: ELK Deploy (Self Hosted)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "k8s/elk/**"
+
+env:
+  ELK_NAMESPACE: elasticsearch
+
+jobs:
+  deploy-elk:
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Ensure Namespace
+      run: |
+        kubectl get ns ${ELK_NAMESPACE} || kubectl create ns ${ELK_NAMESPACE}
+
+    - name: Deploy ELK Stack
+      run: |
+        kubectl apply -n ${ELK_NAMESPACE} -f k8s/elk/
+
+    - name: Wait for Elasticsearch
+      run: |
+        kubectl rollout status deployment elasticsearch -n ${ELK_NAMESPACE} || true
+
+    - name: Wait for Kibana
+      run: |
+        kubectl rollout status deployment kibana -n ${ELK_NAMESPACE} || true
