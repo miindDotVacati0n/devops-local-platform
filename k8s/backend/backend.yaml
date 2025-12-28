@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: yourdockerhub/backend:IMAGE_TAG
+        image: m31llow/backend:IMAGE_TAG
         ports:
         - containerPort: 8080
 
