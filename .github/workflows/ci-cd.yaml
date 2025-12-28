@@ -1,9 +1,8 @@
-name: CI-CD Backend
+name: CI-CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 env:
   IMAGE_NAME: m31llow/backend
@@ -13,23 +12,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout source
+    - name: Checkout code
       uses: actions/checkout@v4
 
     # ------------------------
     # Docker Login
     # ------------------------
-    - name: Docker Login
-      run: |
-        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Login Docker Hub
+      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+        -u "${{ secrets.DOCKER_USERNAME }}" \
+        --password-stdin
 
     # ------------------------
     # Build & Push Image
     # ------------------------
-    - name: Build and Push Docker Image
+    - name: Build and Push Backend Image
       run: |
         IMAGE_TAG=${GITHUB_SHA::7}
         docker build \
@@ -39,35 +36,24 @@ jobs:
         docker push $IMAGE_NAME:$IMAGE_TAG
         echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
+    # ------------------------
+    # Create Kubernetes Cluster (kind)
+    # ------------------------
+    - name: Create kind cluster
+      uses: helm/kind-action@v1.10.0
 
     # ------------------------
-    # Setup kubeconfig
+    # Verify cluster
     # ------------------------
-    - name: Setup kubeconfig
-      run: |
-        mkdir -p ~/.kube
-        echo "${KUBECONFIG_B64}" | base64 -d > ~/.kube/config
-      env:
-        KUBECONFIG_B64: ${{ secrets.KUBECONFIG_B64 }}
-
-    # ------------------------
-    # Verify Cluster
-    # ------------------------
-    - name: Verify Kubernetes connection
+    - name: Check cluster
       run: |
         kubectl cluster-info
         kubectl get nodes
 
     # ------------------------
-    # Replace Image Tag
+    # Deploy to Kubernetes
     # ------------------------
-    - name: Update image tag
+    - name: Deploy Backend
       run: |
         sed -i "s|IMAGE_TAG|${IMAGE_TAG}|g" k8s/backend/backend.yaml
-
-    # ------------------------
-    # Deploy
-    # ------------------------
-    - name: Deploy to Kubernetes
-      run: |
         kubectl apply -f k8s/backend/
