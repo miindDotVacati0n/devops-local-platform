@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: m31llow/backend:latest
+        image: m31llow/backend:__IMAGE_TAG__
         ports:
         - containerPort: 3000
         envFrom:

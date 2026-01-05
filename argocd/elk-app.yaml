@@ -1,0 +1,18 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: elk
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/miindDotVacati0n/devops-local-platform.git
+    targetRevision: main
+    path: k8s/infra/elk
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elasticsearch
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

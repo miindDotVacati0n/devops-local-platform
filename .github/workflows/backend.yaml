@@ -1,39 +1,37 @@
-name: Backend CI/CD
+name: Backend CI (GitOps)
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'applications/backend/**'
-      - 'k8s/backend/**'
 
 jobs:
-  build-and-deploy:
-    runs-on: self-hosted 
+  build:
+    runs-on: self-hosted
     env:
       IMAGE_NAME: m31llow/backend
-      KUBE_NAMESPACE: backend
 
     steps:
       - name: Cleanup Workspace
-        run: |
-          echo "Cleaning up old git metadata..."
-          rm -rf .git || true
+        run: rm -rf .git || true
 
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          clean: true
 
-      - name: Docker Build & Push
+      - name: Build & Push Image
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest -t ${{ env.IMAGE_NAME }}:${{ github.sha }} ./applications/backend
-          docker push ${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          TAG=${GITHUB_SHA}
+          docker build -t $IMAGE_NAME:$TAG ./applications/backend
+          docker push $IMAGE_NAME:$TAG
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
 
-      - name: Deploy to K8s
+      - name: Update Manifest
         run: |
-          kubectl apply -f k8s/backend/backend-cm.yaml
-          kubectl apply -f k8s/backend/backend.yaml
-          kubectl rollout restart deployment backend -n ${{ env.KUBE_NAMESPACE }}
+          sed -i "s/__IMAGE_TAG__/${IMAGE_TAG}/g" \
+            k8s/apps/backend/deployment.yaml
+
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git commit -am "deploy backend ${IMAGE_TAG}"
+          git push origin main
