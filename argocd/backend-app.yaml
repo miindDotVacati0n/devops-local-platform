@@ -8,7 +8,7 @@ spec:
   source:
     repoURL: https://github.com/miindDotVacati0n/devops-local-platform.git
     targetRevision: main
-    path: k8s/apps/backend
+    path: k8s/applications/backend
   destination:
     server: https://kubernetes.default.svc
     namespace: backend
