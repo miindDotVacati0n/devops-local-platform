@@ -31,7 +31,7 @@ spec:
 
         # ====== Disable Security (LAB ONLY) ======
         - name: xpack.security.enabled
-          value: "false"
+          value: "true"
         - name: xpack.security.enrollment.enabled
           value: "false"
 
